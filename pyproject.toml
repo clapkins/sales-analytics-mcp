@@ -1,0 +1,36 @@
+[project]
+name = "sales-analytics-mcp"
+version = "0.1.0"
+description = "Прототип аналитической системы: MCP-сервер и скиллы для анализа табличных данных"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0.0",
+    "pandas>=2.2.0",
+    "matplotlib>=3.9.0",
+    "seaborn>=0.13.0",
+    "openpyxl>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6.0",
+    "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "ARG", "ERA", "RUF"]
+# RUF001-003 (ambiguous-unicode-character) отключены: проект двуязычный —
+# английские идентификаторы, русский текст в докстрингах и комментариях
+# по требованию CLAUDE.md, кириллица там не ошибка.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# временные артефакты прогонов — в репозитории остаются только
+# итоговые графики в charts/ и отчёт в reports/, всё остальное сюда
+*.tmp.png
+.ipynb_checkpoints/
