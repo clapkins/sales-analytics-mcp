@@ -21,9 +21,11 @@ def _isolated_registry() -> Any:
     registry._REGISTRY.update(original)
 
 
-def test_discover_returns_empty_list_without_skills() -> None:
-    """Пакет skills/ пуст на этом этапе — discover() не падает и возвращает []."""
-    assert discover() == []
+def test_discover_finds_all_implemented_skills() -> None:
+    """discover() находит все скиллы, реализованные в пакете skills/."""
+    discovered_names = {skill.name for skill in discover()}
+
+    assert {"load_data", "describe_data", "clean_data"} <= discovered_names
 
 
 def test_register_skill_is_found_by_discover() -> None:
