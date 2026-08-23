@@ -20,9 +20,9 @@ from core.errors import unknown_value_error
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
 from core.session import SessionStore
+from core.stats import iqr_outlier_mask
 
 _OUTLIER_ACTIONS = ("mark", "remove")
-_IQR_MULTIPLIER = 1.5
 
 
 def _normalize_text_columns(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
@@ -102,24 +102,6 @@ def _fill_missing(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
     return df, filled
 
 
-def _iqr_outlier_mask(series: pd.Series) -> pd.Series:
-    """Строит булеву маску выбросов по правилу 1.5×IQR.
-
-    Args:
-        series: Числовая колонка.
-
-    Returns:
-        Булева маска той же длины: ``True`` — значение вне диапазона
-        ``[Q1 - 1.5×IQR, Q3 + 1.5×IQR]``.
-    """
-    q1 = series.quantile(0.25)
-    q3 = series.quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - _IQR_MULTIPLIER * iqr
-    upper_bound = q3 + _IQR_MULTIPLIER * iqr
-    return (series < lower_bound) | (series > upper_bound)
-
-
 def _handle_outliers(df: pd.DataFrame, action: str) -> tuple[pd.DataFrame, dict[str, int]]:
     """Находит выбросы по IQR во всех числовых колонках и помечает/удаляет их.
 
@@ -143,7 +125,7 @@ def _handle_outliers(df: pd.DataFrame, action: str) -> tuple[pd.DataFrame, dict[
     by_column: dict[str, int] = {}
 
     for column in df.select_dtypes(include="number").columns:
-        mask = _iqr_outlier_mask(df[column])
+        mask = iqr_outlier_mask(df[column])
         count = int(mask.sum())
         if count:
             by_column[column] = count
@@ -217,9 +199,23 @@ class DataCleaningSkill(BaseSkill):
         df, missing_filled = _fill_missing(df)
         df, outliers_by_column = _handle_outliers(df, outlier_action)
 
+        operations_log = {
+            "text_normalized": text_normalized,
+            "duplicates_removed": duplicates_removed,
+            "missing_filled": missing_filled,
+            "outliers": {
+                "action": outlier_action,
+                "by_column": outliers_by_column,
+            },
+        }
+
         new_dataset_id = self.session.put(
             df,
-            meta={"parent_dataset_id": dataset_id, "operation": "clean"},
+            meta={
+                "parent_dataset_id": dataset_id,
+                "operation": "clean",
+                "operations_log": operations_log,
+            },
             parent_id=dataset_id,
             operation="clean",
         )
@@ -230,14 +226,6 @@ class DataCleaningSkill(BaseSkill):
             "parent_dataset_id": dataset_id,
             "rows_before": rows_before,
             "rows_after": df.shape[0],
-            "operations_log": {
-                "text_normalized": text_normalized,
-                "duplicates_removed": duplicates_removed,
-                "missing_filled": missing_filled,
-                "outliers": {
-                    "action": outlier_action,
-                    "by_column": outliers_by_column,
-                },
-            },
+            "operations_log": operations_log,
         }
         return to_json_safe(result)

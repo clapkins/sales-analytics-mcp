@@ -55,6 +55,28 @@ def test_get_unknown_dataset_id_lists_existing_ones() -> None:
     assert payload["allowed"] == [known_id]
 
 
+def test_get_meta_returns_what_was_stored() -> None:
+    """get_meta() отдаёт ровно то, что было передано в put()."""
+    store = SessionStore()
+    dataset_id = store.put(
+        pd.DataFrame({"a": [1]}), meta={"operations_log": {"duplicates_removed": 5}}
+    )
+
+    meta = store.get_meta(dataset_id)
+
+    assert meta["operations_log"]["duplicates_removed"] == 5
+
+
+def test_get_meta_unknown_dataset_id_raises_skill_error() -> None:
+    """get_meta() для неизвестного id — та же структурированная ошибка, что и у get()."""
+    store = SessionStore()
+
+    with pytest.raises(SkillError) as exc_info:
+        store.get_meta("ds_999")
+
+    assert exc_info.value.payload.error_code == "unknown_dataset_id"
+
+
 def test_list_returns_summary_with_parent_link() -> None:
     """list() отражает связь родитель-потомок для отчёта об очистке."""
     store = SessionStore()

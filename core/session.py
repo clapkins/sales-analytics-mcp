@@ -119,6 +119,40 @@ class SessionStore:
                 существующих идентификаторов, чтобы модель могла
                 исправиться на следующем шаге.
         """
+        return self._get_entry(dataset_id).df
+
+    def get_meta(self, dataset_id: str) -> dict[str, Any]:
+        """Возвращает метаданные датасета — то, что положил скилл при put().
+
+        Используется, например, ``InsightGenerationSkill``, чтобы
+        достать лог очистки по dataset_id без повторной передачи этого
+        лога через контекст модели.
+
+        Args:
+            dataset_id: Идентификатор датасета.
+
+        Returns:
+            Метаданные, переданные в ``put()`` при сохранении датасета.
+
+        Raises:
+            SkillError: Если dataset_id не найден.
+        """
+        return self._get_entry(dataset_id).meta
+
+    def _get_entry(self, dataset_id: str) -> DatasetEntry:
+        """Находит запись по dataset_id или поднимает структурированную ошибку.
+
+        Args:
+            dataset_id: Идентификатор датасета.
+
+        Returns:
+            Запись хранилища.
+
+        Raises:
+            SkillError: Если dataset_id не найден — с кодом
+                ``"unknown_dataset_id"`` и списком реально
+                существующих идентификаторов.
+        """
         entry = self._entries.get(dataset_id)
         if entry is None:
             raise unknown_value_error(
@@ -127,7 +161,7 @@ class SessionStore:
                 dataset_id,
                 list(self._entries),
             )
-        return entry.df
+        return entry
 
     def list(self) -> list[dict[str, Any]]:
         """Возвращает сводку по всем датасетам в хранилище.
