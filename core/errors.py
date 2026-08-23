@@ -110,7 +110,7 @@ def unknown_value_error(error_code: str, label: str, value: str, allowed: list[s
         если удалось подобрать, полем suggestion.
     """
     suggestion = suggest_closest(value, allowed)
-    message = f"{label} '{value}' не найдена среди допустимых значений."
+    message = f"'{value}' — недопустимое значение параметра «{label}»."
     if suggestion:
         message += f" Возможно, имелось в виду '{suggestion}'."
     return SkillError(

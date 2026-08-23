@@ -19,7 +19,6 @@ from typing import Any
 
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
-from core.session import SessionStore
 from skills.describe import DescriptiveStatsSkill
 
 
@@ -36,14 +35,6 @@ class InsightGenerationSkill(BaseSkill):
         "материал для собственного текстового отчёта с выводами и "
         "рекомендациями."
     )
-
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, откуда берутся датасет и его метаданные.
-        """
-        self.session = session
 
     def run(
         self, dataset_id: str, chart_descriptions: list[dict[str, str]] | None = None

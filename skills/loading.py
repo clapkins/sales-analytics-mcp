@@ -15,7 +15,6 @@ import pandas as pd
 from core.errors import ErrorPayload, SkillError, unknown_value_error
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
-from core.session import SessionStore
 
 _ENCODINGS = ("utf-8", "utf-8-sig", "cp1251")
 _DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%m/%d/%Y")
@@ -152,14 +151,6 @@ class DataLoadingSkill(BaseSkill):
         "и сводку по структуре данных: размерность, типы колонок, "
         "количество пропусков и несколько строк примера."
     )
-
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, куда будет положен загруженный датафрейм.
-        """
-        self.session = session
 
     def run(self, file_path: str) -> dict[str, Any]:
         """Загружает файл и кладёт результат в session store.

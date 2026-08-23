@@ -31,7 +31,6 @@ from core.config import CHARTS_DIR
 from core.errors import ErrorPayload, SkillError, unknown_value_error
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
-from core.session import SessionStore
 from core.stats import iqr_outlier_mask
 
 sns.set_theme(style="whitegrid")
@@ -321,14 +320,6 @@ class TrendChartSkill(BaseSkill):
         "текстовое описание графика — модель картинку не видит."
     )
 
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, откуда берётся датасет.
-        """
-        self.session = session
-
     def run(self, dataset_id: str, x_col: str, y_col: str) -> dict[str, Any]:
         """Строит и сохраняет график тренда.
 
@@ -373,14 +364,6 @@ class DistributionChartSkill(BaseSkill):
         "описание — диапазон, среднее, медиану, наличие выбросов."
     )
 
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, откуда берётся датасет.
-        """
-        self.session = session
-
     def run(self, dataset_id: str, column: str) -> dict[str, Any]:
         """Строит и сохраняет гистограмму распределения.
 
@@ -423,14 +406,6 @@ class CorrelationChartSkill(BaseSkill):
         "сильную по модулю пару связанных показателей."
     )
 
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, откуда берётся датасет.
-        """
-        self.session = session
-
     def run(self, dataset_id: str) -> dict[str, Any]:
         """Строит и сохраняет корреляционную тепловую карту.
 
@@ -469,14 +444,6 @@ class TopNChartSkill(BaseSkill):
         "средней прибыли). category_col — категориальная колонка, "
         "value_col — числовая, agg — 'sum', 'mean' или 'count'."
     )
-
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, откуда берётся датасет.
-        """
-        self.session = session
 
     def run(
         self,

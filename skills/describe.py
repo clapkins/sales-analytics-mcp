@@ -12,7 +12,6 @@ import pandas as pd
 
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
-from core.session import SessionStore
 
 _TOP_CATEGORIES = 5
 
@@ -79,14 +78,6 @@ class DescriptiveStatsSkill(BaseSkill):
         "топ-5 по частоте; для колонок с датами — диапазон периода. "
         "Принимает dataset_id, а не сами данные."
     )
-
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, откуда берётся датасет по его id.
-        """
-        self.session = session
 
     def run(self, dataset_id: str) -> dict[str, Any]:
         """Считает статистику по датасету, сгруппированную по типу колонки.

@@ -19,7 +19,6 @@ import pandas as pd
 from core.errors import unknown_value_error
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
-from core.session import SessionStore
 from core.stats import iqr_outlier_mask
 
 _OUTLIER_ACTIONS = ("mark", "remove")
@@ -152,15 +151,6 @@ class DataCleaningSkill(BaseSkill):
         "удаляет, в зависимости от outlier_action. Создаёт новый "
         "dataset_id, исходный датасет остаётся доступен для сравнения."
     )
-
-    def __init__(self, session: SessionStore) -> None:
-        """Инициализирует скилл с хранилищем датасетов.
-
-        Args:
-            session: Хранилище, откуда берётся исходный датасет и куда
-                кладётся очищенный.
-        """
-        self.session = session
 
     def run(self, dataset_id: str, outlier_action: str = "mark") -> dict[str, Any]:
         """Выполняет полный цикл очистки датасета.

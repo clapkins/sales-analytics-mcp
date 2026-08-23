@@ -1,0 +1,493 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "sales-analytics-mcp",
+    "version": "0.1.0",
+    "description": "Инструменты MCP-сервера аналитической системы, представленные в формате OpenAPI для интеграций, которым нужен REST, а не протокол MCP (например, Custom GPT Action)."
+  },
+  "paths": {
+    "/tools/auto_analyze": {
+      "post": {
+        "summary": "Автоматически выбирает подходящий тип графика по типу колонки и строит его: колонка с датами → тренд по числовой колонке, числовая колонка → гистограмма распределения, категориальная колонка → топ-N по числовой колонке. Вторая колонка (для тренда и топ-N) подбирается автоматически. Используй, когда не важен конкретный тип графика — важно быстро увидеть что-то содержательное про колонку.",
+        "operationId": "auto_analyze",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета в session store."
+                  },
+                  "column": {
+                    "type": "string",
+                    "description": "Колонка, для которой нужно подобрать график."
+                  }
+                },
+                "required": [
+                  "dataset_id",
+                  "column"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/clean_data": {
+      "post": {
+        "summary": "Очищает загруженный датасет: удаляет точные дубли строк, заполняет пропуски (медианой для чисел, модой для категорий), нормализует текстовые колонки (пробелы, регистр) и находит выбросы по правилу IQR — помечает их колонкой is_outlier или удаляет, в зависимости от outlier_action. Создаёт новый dataset_id, исходный датасет остаётся доступен для сравнения.",
+        "operationId": "clean_data",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Id исходного датасета в session store."
+                  },
+                  "outlier_action": {
+                    "default": "mark",
+                    "type": "string",
+                    "description": "``\"mark\"`` (по умолчанию) — пометить\nвыбросы колонкой ``is_outlier``; ``\"remove\"`` — удалить\nстроки-выбросы из результата."
+                  }
+                },
+                "required": [
+                  "dataset_id"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/correlation_analysis": {
+      "post": {
+        "summary": "Строит тепловую карту корреляций между всеми числовыми колонками датасета. Не требует указания колонок — использует их все. Возвращает путь к PNG и текстовое описание — самую сильную по модулю пару связанных показателей.",
+        "operationId": "correlation_analysis",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета в session store."
+                  }
+                },
+                "required": [
+                  "dataset_id"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/describe_data": {
+      "post": {
+        "summary": "Возвращает базовую статистику по датасету: для числовых колонок — среднее, медиану, стандартное отклонение, квартили, min/max; для категориальных — число уникальных значений и топ-5 по частоте; для колонок с датами — диапазон периода. Принимает dataset_id, а не сами данные.",
+        "operationId": "describe_data",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета в session store."
+                  }
+                },
+                "required": [
+                  "dataset_id"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/export_report": {
+      "post": {
+        "summary": "Сохраняет готовый текстовый отчёт (написанный тобой на основе результата prepare_insights_context) в файл в папке reports/. Сам текст выводов не формирует — только сохраняет переданный. format: 'markdown' — текст как есть с расширением .md; 'json' — текст вместе с базовыми метаданными датасета.",
+        "operationId": "export_report",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета, к которому относится\nотчёт — используется в имени файла и (для json) в\nметаданных."
+                  },
+                  "report_text": {
+                    "type": "string",
+                    "description": "Готовый текст отчёта, написанный моделью."
+                  },
+                  "format": {
+                    "default": "markdown",
+                    "type": "string",
+                    "description": "``\"markdown\"`` (по умолчанию) или ``\"json\"``."
+                  }
+                },
+                "required": [
+                  "dataset_id",
+                  "report_text"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/list_datasets": {
+      "post": {
+        "summary": "Возвращает список всех датасетов, доступных в этой сессии: dataset_id, размерность, родительский датасет (если получен через clean_data) и метаданные. Полезно, если нужно вспомнить, какие dataset_id уже загружены или очищены.",
+        "operationId": "list_datasets",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/load_data": {
+      "post": {
+        "summary": "Загружает табличные данные из файла (CSV, Excel или JSON), автоматически определяя кодировку, разделитель и формат дат в колонках. Возвращает dataset_id для дальнейших вызовов и сводку по структуре данных: размерность, типы колонок, количество пропусков и несколько строк примера.",
+        "operationId": "load_data",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "file_path": {
+                    "type": "string",
+                    "description": "Путь к файлу CSV, Excel (.xlsx/.xls) или JSON."
+                  }
+                },
+                "required": [
+                  "file_path"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/plot_distribution": {
+      "post": {
+        "summary": "Строит гистограмму распределения числовой колонки с кривой плотности. Подходит для ответа на вопросы вида «как распределены продажи». Возвращает путь к PNG и текстовое описание — диапазон, среднее, медиану, наличие выбросов.",
+        "operationId": "plot_distribution",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета в session store."
+                  },
+                  "column": {
+                    "type": "string",
+                    "description": "Числовая колонка."
+                  }
+                },
+                "required": [
+                  "dataset_id",
+                  "column"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/plot_top_n": {
+      "post": {
+        "summary": "Строит горизонтальную столбчатую диаграмму топ-N категорий (например, топ продуктов по сумме продаж или топ регионов по средней прибыли). category_col — категориальная колонка, value_col — числовая, agg — 'sum', 'mean' или 'count'.",
+        "operationId": "plot_top_n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета в session store."
+                  },
+                  "category_col": {
+                    "type": "string",
+                    "description": "Категориальная колонка для группировки."
+                  },
+                  "value_col": {
+                    "type": "string",
+                    "description": "Числовая колонка для агрегации."
+                  },
+                  "n": {
+                    "default": 10,
+                    "type": "integer",
+                    "description": "Сколько топ-категорий показать (по умолчанию 10)."
+                  },
+                  "agg": {
+                    "default": "sum",
+                    "type": "string",
+                    "description": "Способ агрегации — ``\"sum\"``, ``\"mean\"`` или ``\"count\"``."
+                  }
+                },
+                "required": [
+                  "dataset_id",
+                  "category_col",
+                  "value_col"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/plot_trend": {
+      "post": {
+        "summary": "Строит линейный график динамики числовой колонки по месяцам. x_col должен быть колонкой с датами (например, Date), y_col — числовой колонкой (например, Sales). Возвращает путь к PNG и текстовое описание графика — модель картинку не видит.",
+        "operationId": "plot_trend",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета в session store."
+                  },
+                  "x_col": {
+                    "type": "string",
+                    "description": "Колонка с датами."
+                  },
+                  "y_col": {
+                    "type": "string",
+                    "description": "Числовая колонка."
+                  }
+                },
+                "required": [
+                  "dataset_id",
+                  "x_col",
+                  "y_col"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/prepare_insights_context": {
+      "post": {
+        "summary": "Собирает статистику по датасету, лог операций очистки (если датасет получен через clean_data) и переданные описания графиков в единый структурированный пакет фактов. Не пишет текст выводов сам — используй результат этого вызова как материал для собственного текстового отчёта с выводами и рекомендациями.",
+        "operationId": "prepare_insights_context",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Датасет, для которого готовится отчёт — обычно\nрезультат ``clean_data``, чтобы в контекст попал лог\nочистки."
+                  },
+                  "chart_descriptions": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Описания графиков, построенных ранее в\nэтом же диалоге (результаты ``plot_trend``,\n``plot_distribution``, ``correlation_analysis``,\n``plot_top_n``) — эти данные существуют только в\nистории диалога, скилл не может восстановить их\nсамостоятельно по одному dataset_id."
+                  }
+                },
+                "required": [
+                  "dataset_id"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

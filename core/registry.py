@@ -11,9 +11,16 @@ import pkgutil
 from abc import ABC, abstractmethod
 from typing import Any
 
+from core.session import SessionStore
+
 
 class BaseSkill(ABC):
     """Базовый класс скилла.
+
+    Конструктор общий для всех скиллов — каждому нужен доступ к
+    session store, чтобы класть и брать датафреймы (архитектурный
+    инвариант №1, CLAUDE.md). Раньше он дублировался в каждом файле
+    скилла отдельно; теперь определён один раз здесь.
 
     Attributes:
         name: Уникальное машиночитаемое имя скилла — используется как
@@ -24,6 +31,15 @@ class BaseSkill(ABC):
 
     name: str
     description: str
+
+    def __init__(self, session: SessionStore) -> None:
+        """Инициализирует скилл с хранилищем датасетов.
+
+        Args:
+            session: Хранилище, куда скилл кладёт и откуда берёт
+                датафреймы по dataset_id.
+        """
+        self.session = session
 
     @abstractmethod
     def run(self, *args: Any, **kwargs: Any) -> Any:
