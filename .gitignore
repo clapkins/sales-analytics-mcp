@@ -11,3 +11,9 @@ dist/
 # итоговые графики в charts/ и отчёт в reports/, всё остальное сюда
 *.tmp.png
 .ipynb_checkpoints/
+
+# export_report сохраняет файлы вида report_{dataset_id}.md|json при
+# каждом прогоне диалога — это артефакты, а не содержимое репозитория.
+# Демонстрационный отчёт лежит отдельно как reports/sample_report.md.
+reports/report_*.md
+reports/report_*.json
