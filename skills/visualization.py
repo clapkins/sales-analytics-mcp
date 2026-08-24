@@ -168,15 +168,42 @@ def _build_trend_chart(df: pd.DataFrame, x_col: str, y_col: str) -> tuple[plt.Fi
 
     peak_month = monthly.idxmax()
     trough_month = monthly.idxmin()
-    first_value, last_value = monthly.iloc[0], monthly.iloc[-1]
-    change_pct = ((last_value - first_value) / first_value * 100) if first_value else 0.0
+
+    # Динамику намеренно считаем по агрегатам (годовым суммам или
+    # половинам периода), а не как «первый месяц против последнего»:
+    # два одиночных месяца слишком шумные, и полученный по ним процент
+    # ушёл бы в отчёт как утверждение о тренде, которого в данных нет.
+    yearly = monthly.groupby(monthly.index.year).sum()
+    if len(yearly) > 1:
+        dynamics = "По годам: " + ", ".join(
+            f"{year} — {value:.0f}" for year, value in yearly.items()
+        )
+        first_year_value, last_year_value = yearly.iloc[0], yearly.iloc[-1]
+        if first_year_value:
+            change_pct = (last_year_value - first_year_value) / first_year_value * 100
+            dynamics += f" (изменение {yearly.index[0]} → {yearly.index[-1]}: {change_pct:+.1f}%)"
+        dynamics += "."
+    else:
+        half = len(monthly) // 2
+        first_half, second_half = monthly.iloc[:half].sum(), monthly.iloc[half:].sum()
+        change_pct = ((second_half - first_half) / first_half * 100) if first_half else 0.0
+        dynamics = (
+            f"Вторая половина периода против первой: {change_pct:+.1f}% "
+            f"({first_half:.0f} → {second_half:.0f})."
+        )
+
+    monthly_by_calendar_month = monthly.groupby(monthly.index.month).mean()
+    best_month = monthly_by_calendar_month.idxmax()
+    worst_month = monthly_by_calendar_month.idxmin()
 
     description = (
         f"Линейный график помесячной суммы '{y_col}' с {monthly.index.min():%Y-%m} "
-        f"по {monthly.index.max():%Y-%m}. Пик — {peak_month:%Y-%m} "
-        f"({monthly.loc[peak_month]:.0f}), минимум — {trough_month:%Y-%m} "
-        f"({monthly.loc[trough_month]:.0f}). Изменение от первого к последнему "
-        f"месяцу: {change_pct:+.1f}%."
+        f"по {monthly.index.max():%Y-%m} ({len(monthly)} точек). "
+        f"Пик — {peak_month:%Y-%m} ({monthly.loc[peak_month]:.0f}), "
+        f"минимум — {trough_month:%Y-%m} ({monthly.loc[trough_month]:.0f}), "
+        f"среднее за месяц {monthly.mean():.0f}. {dynamics} "
+        f"В среднем по календарным месяцам сильнее всего месяц №{best_month}, "
+        f"слабее всего №{worst_month} — признак сезонности."
     )
     return fig, description
 
@@ -255,15 +282,21 @@ def _build_correlation_chart(df: pd.DataFrame) -> tuple[plt.Figure, str]:
     ax.set_title("Корреляционная матрица числовых показателей")
     fig.autofmt_xdate(rotation=45)
 
+    # Перечисляем все пары, а не только сильнейшую: модель не видит саму
+    # карту, и любая пара, не попавшая в описание, для неё не существует —
+    # включая содержательные слабые и отрицательные связи.
     upper_triangle_mask = np.triu(np.ones(corr.shape, dtype=bool), k=1)
-    pairs = corr.where(upper_triangle_mask).stack()
-    strongest_pair = pairs.abs().idxmax()
-    strongest_value = pairs.loc[strongest_pair]
+    # dropna() обязателен: в pandas 3 stack() больше не отбрасывает
+    # NaN сам, и замаскированная половина матрицы попала бы в описание
+    # как пары с коэффициентом nan.
+    pairs = corr.where(upper_triangle_mask).stack().dropna().sort_values(key=abs, ascending=False)
+    pairs_text = "; ".join(
+        f"'{left}' и '{right}': {value:+.2f}" for (left, right), value in pairs.items()
+    )
 
     description = (
         f"Тепловая карта корреляций между колонками: {', '.join(corr.columns)}. "
-        f"Сильнее всего связаны '{strongest_pair[0]}' и '{strongest_pair[1]}' "
-        f"(коэффициент {strongest_value:+.2f})."
+        f"Все пары по убыванию силы связи — {pairs_text}."
     )
     return fig, description
 
@@ -296,14 +329,24 @@ def _build_top_n_chart(
     ax.set_xlabel(_axis_label(value_col))
     ax.set_ylabel(category_col)
 
-    leader, leader_value = top.index[0], top.iloc[0]
     total = grouped.sum()
-    share_pct = (leader_value / total * 100) if total else 0.0
+
+    # Перечисляем весь рейтинг, а не только лидера: модель не видит
+    # картинку, поэтому по описанию «лидер такой-то» невозможно сравнить
+    # два графика между собой (например, заметить товар с высоким
+    # оборотом, но низкой прибылью). Список ограничен n, так что он
+    # заведомо компактный.
+    ranking_text = "; ".join(
+        f"{position}. '{category}' — {value:.0f}"
+        + (f" ({value / total * 100:.0f}%)" if total else "")
+        for position, (category, value) in enumerate(top.items(), start=1)
+    )
 
     description = (
         f"Горизонтальная столбчатая диаграмма: топ-{len(top)} значений "
-        f"'{category_col}' по {agg} от '{value_col}'. Лидер — '{leader}' "
-        f"({leader_value:.0f}, {share_pct:.0f}% от суммы по всем категориям)."
+        f"'{category_col}' по {agg} от '{value_col}' "
+        f"(всего категорий: {len(grouped)}). Рейтинг по убыванию — "
+        f"{ranking_text}."
     )
     return fig, description
 

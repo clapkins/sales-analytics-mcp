@@ -95,6 +95,23 @@ def test_correlation_chart_created_and_describes_strongest_pair(
     assert "Profit" in result["description"]
 
 
+def test_correlation_description_lists_every_pair_without_nan(
+    cleaned_dataset_id: tuple[SessionStore, str],
+) -> None:
+    """Регрессия: описание перечисляет все пары и не содержит nan.
+
+    Раньше называлась только сильнейшая пара, и отрицательная связь
+    Quantity↔Profit была для модели невидима — она не видит саму карту.
+    """
+    session, dataset_id = cleaned_dataset_id
+    description = CorrelationChartSkill(session).run(dataset_id)["description"]
+
+    assert "nan" not in description.lower()
+    # Три числовые колонки дают ровно три пары — все должны быть названы.
+    assert description.count(":") >= 3
+    assert "Quantity" in description
+
+
 def test_correlation_chart_requires_two_numeric_columns() -> None:
     """Меньше двух числовых колонок — явная ошибка, а не пустой график."""
     session = SessionStore()
@@ -118,6 +135,55 @@ def test_top_n_chart_created_and_identifies_leader(
     assert result["chart_type"] == "top_n"
     assert Path(result["path"]).exists()
     assert "%" in result["description"]
+
+
+def test_top_n_description_lists_full_ranking_not_just_leader(
+    cleaned_dataset_id: tuple[SessionStore, str],
+) -> None:
+    """Регрессия: описание перечисляет весь рейтинг, а не только лидера.
+
+    Пока называли одного лидера, описания топ-N по Sales и по Profit
+    были почти одинаковы ('лидер Laptop Pro'), и главная находка
+    датасета — товар с высоким оборотом и низкой маржой — была для
+    модели принципиально ненаблюдаема: картинку она не видит.
+    """
+    session, dataset_id = cleaned_dataset_id
+    by_sales = TopNChartSkill(session).run(
+        dataset_id, category_col="Product", value_col="Sales", n=10, agg="sum"
+    )["description"]
+    by_profit = TopNChartSkill(session).run(
+        dataset_id, category_col="Product", value_col="Profit", n=10, agg="sum"
+    )["description"]
+
+    # В рейтинге должны быть названы все шесть товаров, а не только лидер.
+    for product in ("Laptop Pro", "Wireless Mouse", "Desk Lamp"):
+        assert product in by_sales
+        assert product in by_profit
+
+    # Заложенная в данные находка: Wireless Mouse даёт заметно большую
+    # долю оборота, чем прибыли, — по описаниям это должно быть видно.
+    sales_rank = by_sales.index("Wireless Mouse")
+    profit_rank = by_profit.index("Wireless Mouse")
+    assert sales_rank < profit_rank
+
+
+def test_trend_description_uses_yearly_totals_not_noisy_endpoints(
+    cleaned_dataset_id: tuple[SessionStore, str],
+) -> None:
+    """Регрессия: динамика считается по годам, а не по двум крайним месяцам.
+
+    Сравнение первого месяца с последним давало «+250%» на данных, где
+    год к году рост около нуля, — модель добросовестно перенесла бы эту
+    цифру в отчёт как факт.
+    """
+    session, dataset_id = cleaned_dataset_id
+    description = TrendChartSkill(session).run(dataset_id, x_col="Date", y_col="Sales")[
+        "description"
+    ]
+
+    assert "По годам" in description
+    assert "2023" in description
+    assert "2024" in description
 
 
 def test_top_n_chart_rejects_invalid_aggregation(
