@@ -12,20 +12,25 @@
 ``correlation_analysis``, плюс дополнительный ``plot_top_n``), но вся
 отрисовка вынесена в общие приватные функции этого модуля, чтобы не
 дублировать логику между ними.
+
+Фигуры создаются через объектный API (``Figure`` + ``FigureCanvasAgg``),
+а не через ``matplotlib.pyplot``. Это не стилистика: FastMCP исполняет
+тела синхронных инструментов в рабочих потоках AnyIO, а ``pyplot``
+держит глобальный менеджер фигур и потоконебезопасен — при
+одновременных вызовах графиков из разных потоков это даёт порчу
+состояния вплоть до зависания. У объектного API глобального состояния
+нет, поэтому и гонки не за что зацепиться.
 """
 
 from pathlib import Path
 from typing import Any
 
-import matplotlib
-
-matplotlib.use("Agg")
-
 import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 
 from core.config import CHARTS_DIR
 from core.errors import ErrorPayload, SkillError, unknown_value_error
@@ -56,7 +61,27 @@ def _axis_label(column: str) -> str:
     return f"{column} ({unit})" if unit else column
 
 
-def _save_chart(fig: plt.Figure, filename: str) -> Path:
+def _new_figure(figsize: tuple[float, float]) -> tuple[Figure, Any]:
+    """Создаёт фигуру и оси в обход глобального состояния pyplot.
+
+    Аналог ``plt.subplots()``, но без регистрации фигуры в глобальном
+    менеджере: тела инструментов исполняются в рабочих потоках, а
+    ``pyplot`` этого не переживает (см. докстринг модуля). Холст
+    привязывается явно, чтобы ``savefig`` не зависел от того, какой
+    бэкенд выбран по умолчанию.
+
+    Args:
+        figsize: Размер фигуры в дюймах, (ширина, высота).
+
+    Returns:
+        Кортеж из фигуры и её осей.
+    """
+    fig = Figure(figsize=figsize)
+    FigureCanvasAgg(fig)
+    return fig, fig.subplots()
+
+
+def _save_chart(fig: Figure, filename: str) -> Path:
     """Сохраняет фигуру в charts/ с dpi=150 и без обрезки подписей.
 
     Args:
@@ -68,11 +93,10 @@ def _save_chart(fig: plt.Figure, filename: str) -> Path:
     """
     path = CHARTS_DIR / f"{filename}.png"
     fig.savefig(path, dpi=CHART_DPI, bbox_inches="tight")
-    plt.close(fig)
     return path
 
 
-def _build_trend_chart(df: pd.DataFrame, x_col: str, y_col: str) -> tuple[plt.Figure, str]:
+def _build_trend_chart(df: pd.DataFrame, x_col: str, y_col: str) -> tuple[Figure, str]:
     """Строит линейный график помесячной суммы y_col по датам x_col.
 
     Args:
@@ -85,7 +109,7 @@ def _build_trend_chart(df: pd.DataFrame, x_col: str, y_col: str) -> tuple[plt.Fi
     """
     monthly = df.set_index(x_col)[y_col].resample("ME").sum().dropna()
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = _new_figure(figsize=(10, 5))
     ax.plot(monthly.index, monthly.to_numpy(), marker="o", color=ACCENT_COLOR, linewidth=2)
     ax.set_title(f"Динамика «{y_col}» по месяцам")
     ax.set_xlabel("Месяц")
@@ -136,7 +160,7 @@ def _build_trend_chart(df: pd.DataFrame, x_col: str, y_col: str) -> tuple[plt.Fi
     return fig, description
 
 
-def _build_distribution_chart(df: pd.DataFrame, column: str) -> tuple[plt.Figure, str]:
+def _build_distribution_chart(df: pd.DataFrame, column: str) -> tuple[Figure, str]:
     """Строит гистограмму распределения числовой колонки.
 
     Args:
@@ -148,7 +172,7 @@ def _build_distribution_chart(df: pd.DataFrame, column: str) -> tuple[plt.Figure
     """
     series = df[column].dropna()
 
-    fig, ax = plt.subplots(figsize=(9, 5))
+    fig, ax = _new_figure(figsize=(9, 5))
     sns.histplot(series, bins=20, kde=True, color=ACCENT_COLOR, ax=ax)
     ax.set_title(f"Распределение «{column}»")
     ax.set_xlabel(_axis_label(column))
@@ -169,7 +193,7 @@ def _build_distribution_chart(df: pd.DataFrame, column: str) -> tuple[plt.Figure
     return fig, description
 
 
-def _build_correlation_chart(df: pd.DataFrame) -> tuple[plt.Figure, str]:
+def _build_correlation_chart(df: pd.DataFrame) -> tuple[Figure, str]:
     """Строит тепловую карту корреляций числовых колонок.
 
     Args:
@@ -194,7 +218,7 @@ def _build_correlation_chart(df: pd.DataFrame) -> tuple[plt.Figure, str]:
     corr = numeric_df.corr()
     size = max(4.0, 1.1 * len(corr.columns))
 
-    fig, ax = plt.subplots(figsize=(size + 1, size))
+    fig, ax = _new_figure(figsize=(size + 1, size))
     sns.heatmap(
         corr,
         annot=True,
@@ -239,7 +263,7 @@ def _build_correlation_chart(df: pd.DataFrame) -> tuple[plt.Figure, str]:
 
 def _build_top_n_chart(
     df: pd.DataFrame, category_col: str, value_col: str, n: int, agg: str
-) -> tuple[plt.Figure, str]:
+) -> tuple[Figure, str]:
     """Строит горизонтальную столбчатую диаграмму топ-N категорий.
 
     Горизонтальная ориентация выбрана намеренно: при длинных названиях
@@ -259,7 +283,7 @@ def _build_top_n_chart(
     grouped = df.groupby(category_col)[value_col].agg(agg).sort_values(ascending=False)
     top = grouped.head(n)
 
-    fig, ax = plt.subplots(figsize=(9, max(4.0, 0.5 * len(top) + 1)))
+    fig, ax = _new_figure(figsize=(9, max(4.0, 0.5 * len(top) + 1)))
     ax.barh(top.index[::-1].astype(str), top.to_numpy()[::-1], color=ACCENT_COLOR)
     ax.set_title(f"Топ-{len(top)} по «{category_col}» ({agg} от «{value_col}»)")
     ax.set_xlabel(_axis_label(value_col))

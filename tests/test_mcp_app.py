@@ -7,6 +7,7 @@ MCP-клиент (список инструментов, схемы, и то, ч
 приёмки этапа 5.
 """
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -82,6 +83,42 @@ async def test_unknown_column_returns_hint_not_protocol_error() -> None:
     assert bad_result.data["error_code"] == "unknown_column"
     assert "Sales" in bad_result.data["allowed"]
     assert bad_result.data["suggestion"] == "Sales"
+
+
+@pytest.mark.anyio
+async def test_concurrent_chart_calls_all_succeed() -> None:
+    """Одновременные вызовы графиков не мешают друг другу.
+
+    Регрессия на зависание, замеченное в демо-прогоне: FastMCP исполняет
+    тела синхронных инструментов в рабочих потоках AnyIO, а pyplot
+    держит глобальный менеджер фигур и потоконебезопасен. После
+    перехода на объектный API matplotlib общего состояния между
+    потоками не остаётся.
+    """
+    mcp = build_mcp_server()
+    async with Client(mcp) as client:
+        load_result = await client.call_tool("load_data", {"file_path": str(DATA_PATH)})
+        clean_result = await client.call_tool(
+            "clean_data", {"dataset_id": load_result.data["dataset_id"]}
+        )
+        dataset_id = clean_result.data["dataset_id"]
+
+        jobs = []
+        for _ in range(4):
+            jobs.append(
+                client.call_tool(
+                    "plot_trend", {"dataset_id": dataset_id, "x_col": "Date", "y_col": "Sales"}
+                )
+            )
+            jobs.append(
+                client.call_tool("plot_distribution", {"dataset_id": dataset_id, "column": "Sales"})
+            )
+            jobs.append(client.call_tool("correlation_analysis", {"dataset_id": dataset_id}))
+
+        results = await asyncio.wait_for(asyncio.gather(*jobs), timeout=60)
+
+    assert len(results) == 12
+    assert all(result.data["ok"] is True for result in results)
 
 
 @pytest.mark.anyio

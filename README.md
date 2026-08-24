@@ -158,7 +158,9 @@ C:\путь\к\проекту\data\sales_data.csv
 
 Что получилось на выходе — [reports/sample_report.md](reports/sample_report.md).
 
-Скриншоты диалога: [docs/screenshots/](docs/screenshots/).
+Скриншоты диалога: [docs/screenshots/](docs/screenshots/) — прогон
+проведён в чистом чате, без подгрузки системного промпта, только по
+описаниям инструментов.
 
 ## Тестовые данные
 
