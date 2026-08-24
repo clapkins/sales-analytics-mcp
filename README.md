@@ -27,7 +27,7 @@ openpyxl, ruff, pytest.
 ## Установка
 
 ```bash
-git clone https://github.com/clapkins/sales-analytics-mcp.git
+git clone https://github.com/ibezgachev/sales-analytics-mcp.git
 cd sales-analytics-mcp
 
 python -m venv .venv
