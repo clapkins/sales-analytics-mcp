@@ -33,10 +33,13 @@ def test_register_skill_is_found_by_discover() -> None:
 
     @register_skill
     class FakeSkill(BaseSkill):
+        """Фиктивный скилл, существующий только внутри этого теста."""
+
         name = "fake_skill"
         description = "Тестовый скилл для проверки реестра."
 
         def run(self) -> str:
+            """Возвращает фиксированную строку."""
             return "ok"
 
     discovered_names = [skill.name for skill in discover()]
@@ -49,18 +52,24 @@ def test_register_skill_rejects_duplicate_name() -> None:
 
     @register_skill
     class FirstSkill(BaseSkill):
+        """Первый скилл, занимающий имя."""
+
         name = "duplicate_name"
         description = "Первый скилл."
 
         def run(self) -> str:
+            """Возвращает фиксированную строку."""
             return "first"
 
     with pytest.raises(ValueError):
 
         @register_skill
         class SecondSkill(BaseSkill):
+            """Скилл с уже занятым именем — регистрация должна упасть."""
+
             name = "duplicate_name"
             description = "Второй скилл с тем же именем."
 
             def run(self) -> str:
+                """Возвращает фиксированную строку."""
                 return "second"

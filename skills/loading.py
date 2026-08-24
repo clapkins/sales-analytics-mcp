@@ -97,6 +97,7 @@ def _parse_mixed_dates(series: pd.Series) -> pd.Series:
     """
 
     def parse_one(value: object) -> pd.Timestamp:
+        """Разбирает одно значение, перебирая известные форматы дат."""
         if pd.isna(value):
             return pd.NaT
         text = str(value).strip()

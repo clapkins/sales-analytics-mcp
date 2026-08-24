@@ -21,6 +21,13 @@ dev = [
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
+# Пакеты перечислены явно. Без этого setuptools пытается определить их
+# сам, находит в корне рядом с core/ и skills/ ещё и data/, charts/,
+# prompts/, reports/ — и отказывается собирать проект с ошибкой
+# "Multiple top-level packages discovered in a flat-layout".
+[tool.setuptools]
+packages = ["core", "skills"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

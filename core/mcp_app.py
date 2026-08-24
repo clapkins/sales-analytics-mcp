@@ -54,6 +54,7 @@ def _wrap_skill_errors(skill: BaseSkill) -> Callable[..., Any]:
 
     @functools.wraps(skill.run)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        """Вызывает скилл, превращая SkillError в обычный результат."""
         try:
             return skill.run(*args, **kwargs)
         except SkillError as error:
@@ -75,6 +76,7 @@ def _register_system_prompt(mcp: FastMCP) -> None:
 
     @mcp.prompt(name=SYSTEM_PROMPT_NAME, description=SYSTEM_PROMPT_DESCRIPTION)
     def sales_analysis_workflow() -> str:
+        """Отдаёт клиенту текст инструкции с последовательностью шагов."""
         return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
 

@@ -46,6 +46,7 @@ class SessionStore:
     """
 
     def __init__(self) -> None:
+        """Создаёт пустое хранилище со счётчиком идентификаторов."""
         self._entries: dict[str, DatasetEntry] = {}
         self._counter = 0
 

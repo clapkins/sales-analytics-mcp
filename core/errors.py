@@ -72,6 +72,11 @@ class SkillError(Exception):
     """
 
     def __init__(self, payload: ErrorPayload) -> None:
+        """Создаёт исключение с готовым содержимым ошибки.
+
+        Args:
+            payload: Структурированное описание того, что пошло не так.
+        """
         super().__init__(payload.message)
         self.payload = payload
 
