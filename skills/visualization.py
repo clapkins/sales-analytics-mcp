@@ -31,7 +31,7 @@ from core.config import CHARTS_DIR
 from core.errors import ErrorPayload, SkillError, unknown_value_error
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
-from core.stats import iqr_outlier_mask
+from core.stats import describe_correlation_strength, iqr_outlier_mask
 
 sns.set_theme(style="whitegrid")
 
@@ -290,13 +290,21 @@ def _build_correlation_chart(df: pd.DataFrame) -> tuple[plt.Figure, str]:
     # NaN сам, и замаскированная половина матрицы попала бы в описание
     # как пары с коэффициентом nan.
     pairs = corr.where(upper_triangle_mask).stack().dropna().sort_values(key=abs, ascending=False)
+
+    # К каждому коэффициенту добавляем словесную характеристику с учётом
+    # объёма выборки: без неё модель принимает слабый коэффициент за
+    # доказательство и строит на нём вывод в отчёте.
+    sample_size = len(numeric_df)
     pairs_text = "; ".join(
-        f"'{left}' и '{right}': {value:+.2f}" for (left, right), value in pairs.items()
+        f"'{left}' и '{right}': {value:+.2f} ({describe_correlation_strength(value, sample_size)})"
+        for (left, right), value in pairs.items()
     )
 
     description = (
-        f"Тепловая карта корреляций между колонками: {', '.join(corr.columns)}. "
-        f"Все пары по убыванию силы связи — {pairs_text}."
+        f"Тепловая карта корреляций между колонками: {', '.join(corr.columns)} "
+        f"(выборка: {sample_size} строк). Все пары по убыванию силы связи — "
+        f"{pairs_text}. Слабые связи и связи, неотличимые от нуля, не годятся "
+        f"как самостоятельный аргумент в выводах."
     )
     return fig, description
 
