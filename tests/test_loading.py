@@ -75,6 +75,32 @@ def test_falls_back_to_cp1251_when_utf8_fails(skill: DataLoadingSkill, tmp_path:
     assert result["sample_rows"][0]["Регион"] == "Восток"
 
 
+def test_loads_excel_with_dates_parsed(skill: DataLoadingSkill, tmp_path: Path) -> None:
+    """Excel — заявленный в README формат, значит он должен быть под тестом."""
+    source = pd.read_csv(DATA_PATH)
+    excel_file = tmp_path / "sales.xlsx"
+    source.to_excel(excel_file, index=False)
+
+    result = skill.run(str(excel_file))
+
+    assert result["ok"] is True
+    assert result["rows"] == 180
+    assert "datetime64" in result["column_types"]["Date"]
+
+
+def test_loads_json_with_dates_parsed(skill: DataLoadingSkill, tmp_path: Path) -> None:
+    """JSON — тоже заявленный формат входа."""
+    source = pd.read_csv(DATA_PATH)
+    json_file = tmp_path / "sales.json"
+    source.to_json(json_file, orient="records", force_ascii=False)
+
+    result = skill.run(str(json_file))
+
+    assert result["ok"] is True
+    assert result["rows"] == 180
+    assert "datetime64" in result["column_types"]["Date"]
+
+
 def test_load_puts_dataframe_in_session_store(skill: DataLoadingSkill) -> None:
     """dataset_id из результата действительно указывает на датафрейм в store."""
     result = skill.run(str(DATA_PATH))
