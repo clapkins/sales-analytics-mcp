@@ -32,6 +32,7 @@ from core.errors import ErrorPayload, SkillError, unknown_value_error
 from core.registry import BaseSkill, register_skill
 from core.serialization import to_json_safe
 from core.stats import describe_correlation_strength, iqr_outlier_mask
+from core.validation import require_datetime_column, require_numeric_column, validate_column
 
 sns.set_theme(style="whitegrid")
 
@@ -53,79 +54,6 @@ def _axis_label(column: str) -> str:
     """
     unit = _UNIT_HINTS.get(column)
     return f"{column} ({unit})" if unit else column
-
-
-def _validate_column(df: pd.DataFrame, column: str) -> None:
-    """Проверяет, что колонка существует в датасете.
-
-    Args:
-        df: Датафрейм.
-        column: Имя колонки, переданное вызывающим.
-
-    Raises:
-        SkillError: С кодом ``"unknown_column"``, списком реальных
-            колонок и, если удалось подобрать, ближайшим совпадением.
-    """
-    if column not in df.columns:
-        raise unknown_value_error("unknown_column", "Колонка", column, list(df.columns))
-
-
-def _require_datetime_column(df: pd.DataFrame, column: str) -> None:
-    """Проверяет, что колонка существует и имеет тип datetime64.
-
-    Args:
-        df: Датафрейм.
-        column: Имя колонки, ожидаемой как ось времени.
-
-    Raises:
-        SkillError: Если колонки нет или её тип — не дата; в списке
-            допустимых значений — только колонки с датами.
-    """
-    _validate_column(df, column)
-    if not pd.api.types.is_datetime64_any_dtype(df[column]):
-        datetime_columns = [c for c in df.columns if pd.api.types.is_datetime64_any_dtype(df[c])]
-        raise SkillError(
-            ErrorPayload(
-                error_code="column_not_datetime",
-                message=(
-                    f"Колонка '{column}' не является датой, а plot_trend строит "
-                    "динамику по времени."
-                ),
-                allowed=datetime_columns,
-            )
-        )
-
-
-def _require_numeric_column(df: pd.DataFrame, column: str) -> None:
-    """Проверяет, что колонка существует, числовая и не булева.
-
-    Булевы колонки (например, ``is_outlier`` после очистки) технически
-    числовые для pandas, но не подходят для графика распределения или
-    тренда — их пришлось бы исключить отдельно на графике.
-
-    Args:
-        df: Датафрейм.
-        column: Имя колонки, ожидаемой как числовая величина.
-
-    Raises:
-        SkillError: Если колонки нет или её тип не подходит; в списке
-            допустимых значений — только настоящие числовые колонки.
-    """
-    _validate_column(df, column)
-    series = df[column]
-    if pd.api.types.is_bool_dtype(series) or not pd.api.types.is_numeric_dtype(series):
-        numeric_columns = [
-            c
-            for c in df.columns
-            if pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_bool_dtype(df[c])
-        ]
-        raise SkillError(
-            ErrorPayload(
-                error_code="column_not_numeric",
-                message=f"Колонка '{column}' не числовая.",
-                allowed=numeric_columns,
-            )
-        )
 
 
 def _save_chart(fig: plt.Figure, filename: str) -> Path:
@@ -387,8 +315,8 @@ class TrendChartSkill(BaseSkill):
                 подходят по типу.
         """
         df = self.session.get(dataset_id)
-        _require_datetime_column(df, x_col)
-        _require_numeric_column(df, y_col)
+        require_datetime_column(df, x_col)
+        require_numeric_column(df, y_col)
 
         fig, description = _build_trend_chart(df, x_col, y_col)
         path = _save_chart(fig, f"trend_{y_col}_by_{x_col}")
@@ -430,7 +358,7 @@ class DistributionChartSkill(BaseSkill):
                 числовая.
         """
         df = self.session.get(dataset_id)
-        _require_numeric_column(df, column)
+        require_numeric_column(df, column)
 
         fig, description = _build_distribution_chart(df, column)
         path = _save_chart(fig, f"distribution_{column}")
@@ -522,8 +450,8 @@ class TopNChartSkill(BaseSkill):
                 значения.
         """
         df = self.session.get(dataset_id)
-        _validate_column(df, category_col)
-        _require_numeric_column(df, value_col)
+        validate_column(df, category_col)
+        require_numeric_column(df, value_col)
 
         if agg not in _TOP_N_AGGREGATIONS:
             raise unknown_value_error(

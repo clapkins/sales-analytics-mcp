@@ -45,12 +45,18 @@ def _categorical_stats(series: pd.Series) -> dict[str, Any]:
         series: Категориальная (текстовая) колонка.
 
     Returns:
-        Словарь с ``unique_count`` и списком ``top_values``.
+        Словарь с ``unique_count``, списком ``top_values`` и флагом
+        ``top_values_truncated``. Флаг обязателен: без него сочетание
+        ``unique_count: 6`` и пяти элементов в списке читается как
+        расхождение в данных, а не как усечение — модель может решить,
+        что одна категория потерялась.
     """
+    unique_count = int(series.nunique(dropna=True))
     top_counts = series.value_counts().head(_TOP_CATEGORIES)
     return {
-        "unique_count": series.nunique(dropna=True),
+        "unique_count": unique_count,
         "top_values": [{"value": value, "count": count} for value, count in top_counts.items()],
+        "top_values_truncated": unique_count > len(top_counts),
     }
 
 

@@ -6,6 +6,67 @@
     "description": "Инструменты MCP-сервера аналитической системы, представленные в формате OpenAPI для интеграций, которым нужен REST, а не протокол MCP (например, Custom GPT Action)."
   },
   "paths": {
+    "/tools/aggregate": {
+      "post": {
+        "summary": "Считает агрегаты числовых колонок в разрезе категориальной колонки и возвращает таблицу числами, без построения графика. Используй, когда нужен сам расчёт, а не картинка — например, чтобы сравнить выручку и прибыль по товарам и посчитать маржу: один вызов с value_cols=['Sales', 'Profit'] вместо двух графиков. agg: sum, mean, median, min, max или count.",
+        "operationId": "aggregate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "dataset_id": {
+                    "type": "string",
+                    "description": "Идентификатор датасета в session store."
+                  },
+                  "group_by": {
+                    "type": "string",
+                    "description": "Колонка, по которой группируются строки\n(например, Product или Region)."
+                  },
+                  "value_cols": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "description": "Числовые колонки, по которым считается агрегат."
+                  },
+                  "agg": {
+                    "default": "sum",
+                    "type": "string",
+                    "description": "Способ агрегации — ``\"sum\"`` (по умолчанию), ``\"mean\"``,\n``\"median\"``, ``\"min\"``, ``\"max\"`` или ``\"count\"``."
+                  },
+                  "limit": {
+                    "default": 20,
+                    "type": "integer",
+                    "description": "Сколько групп вернуть, отсортировав по убыванию\nпервой из ``value_cols``."
+                  }
+                },
+                "required": [
+                  "dataset_id",
+                  "group_by",
+                  "value_cols"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Результат вызова инструмента.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tools/auto_analyze": {
       "post": {
         "summary": "Автоматически выбирает подходящий тип графика по типу колонки и строит его: колонка с датами → тренд по числовой колонке, числовая колонка → гистограмма распределения, категориальная колонка → топ-N по числовой колонке. Вторая колонка (для тренда и топ-N) подбирается автоматически. Используй, когда не важен конкретный тип графика — важно быстро увидеть что-то содержательное про колонку.",

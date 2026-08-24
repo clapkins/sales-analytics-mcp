@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from core.session import SessionStore
@@ -40,6 +41,25 @@ def test_categorical_top_values_are_limited_to_five(
     product_stats = result["categorical"]["Product"]
     assert product_stats["unique_count"] == 6
     assert len(product_stats["top_values"]) <= 5
+    # Из демо-прогона: unique_count 6 рядом с пятью элементами списка
+    # читается как потерянная категория, если усечение не помечено явно.
+    assert product_stats["top_values_truncated"] is True
+
+
+def test_top_values_not_marked_truncated_when_all_fit(
+    loaded_dataset_id: tuple[SessionStore, str],
+) -> None:
+    """Если все категории поместились, флаг усечения не выставляется."""
+    session, dataset_id = loaded_dataset_id
+    result = DescriptiveStatsSkill(session).run(dataset_id)
+
+    # Регионов в сыром датасете больше четырёх из-за разнобоя, поэтому
+    # для этой проверки берём заведомо короткий справочник.
+    short_id = session.put(pd.DataFrame({"letter": ["a", "b", "a"]}), meta={})
+    short_result = DescriptiveStatsSkill(session).run(short_id)
+
+    assert result["categorical"]["Product"]["top_values_truncated"] is True
+    assert short_result["categorical"]["letter"]["top_values_truncated"] is False
 
 
 def test_dirty_region_has_more_raw_variants_than_canonical_regions(

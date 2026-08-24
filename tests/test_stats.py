@@ -23,13 +23,14 @@ def test_iqr_outlier_mask_empty_for_uniform_data() -> None:
     assert not mask.any()
 
 
-def test_weak_correlation_on_real_sample_is_marked_indistinguishable() -> None:
+def test_weak_correlation_on_real_sample_is_flagged_as_unusable() -> None:
     """Реальный случай из демо-прогона: -0.13 на 175 строках — это шум.
 
     Именно такой коэффициент попал в отчёт как аргумент («объём не
-    конвертируется в деньги»), хотя на этой выборке он неотличим от нуля.
+    конвертируется в деньги»), хотя на выборке такого размера он слишком
+    слаб, чтобы что-то доказывать.
     """
-    assert "неотличима от нуля" in describe_correlation_strength(-0.13, 175)
+    assert "для выводов не годится" in describe_correlation_strength(-0.13, 175)
 
 
 def test_same_coefficient_becomes_meaningful_on_large_sample() -> None:
